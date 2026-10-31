@@ -87,6 +87,9 @@ int main(int argc, const char *argv[]) {
             rec[@"name"] = name.length > 24 ? [name substringToIndex:24] : name;
         }
         rec[@"pid"] = @(OwnerPid());
+        // Set when the session runs in the Claude desktop app; lets a tap open that exact session.
+        NSString *host = NSProcessInfo.processInfo.environment[@"CLAUDE_CODE_HOST_SESSION_ID"];
+        if ([host hasPrefix:@"local_"]) rec[@"host_session"] = host;
 
         [NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
         [[NSJSONSerialization dataWithJSONObject:rec options:0 error:nil] writeToFile:file atomically:YES];

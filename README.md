@@ -19,9 +19,10 @@ down instead of switching windows.
   time (like `touchbar · 2m`; "claude" is left out because the doll already says it). It
   stays open while anything is working or waiting on you, and closes by itself about
   5 seconds after everything is done.
-- Close the list with the ✕ or by tapping a session; it then stays closed until the next
-  task starts. Tap the doll to open it any time; a list you open yourself stays open until
-  you close it.
+- **Tap a session** to jump to it: a Claude desktop app session opens right on that chat;
+  a terminal or editor session brings that app (Terminal, iTerm, VS Code…) to the front.
+- **Tap ✕** to close the list; it then stays closed until the next task starts. Tap the
+  doll to open it any time; a list you open yourself stays open until you close it.
 
 > Unofficial fan project. Not made by or affiliated with Anthropic.
 

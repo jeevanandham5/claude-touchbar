@@ -8,6 +8,7 @@
 #import <AppKit/AppKit.h>
 #include <dlfcn.h>
 #include <signal.h>
+#include <sys/sysctl.h>
 
 // Private AppKit Touch Bar API (same calls MTMR / Pock use).
 @interface NSTouchBarItem (ClaudeTBPrivate)
@@ -64,9 +65,34 @@ static NSColor *StateColor(TBState s) {
 @property NSString *name;
 @property TBState state;
 @property NSDate *since;
+@property pid_t pid;
+@property NSString *hostSession;   // Claude desktop app's own id (local_…), if it runs there
 @end
 @implementation TBSession
 @end
+
+// Brings the session to the front: the exact session in the Claude desktop app, otherwise
+// the app the session runs in (Terminal, iTerm, VS Code…), found by walking up its processes.
+static void ShowSession(TBSession *s) {
+    if (s.hostSession.length) {
+        NSString *url = [NSString stringWithFormat:@"claude://code/continue?session=%@&source=touchbar", s.hostSession];
+        [NSWorkspace.sharedWorkspace openURL:[NSURL URLWithString:url]];
+        return;
+    }
+    pid_t pid = s.pid;
+    for (int i = 0; i < 20 && pid > 1; i++) {
+        NSRunningApplication *app = [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
+        if (app && app.activationPolicy == NSApplicationActivationPolicyRegular) {
+            [app activateWithOptions:NSApplicationActivateAllWindows];
+            return;
+        }
+        struct kinfo_proc info;
+        size_t size = sizeof(info);
+        int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid};
+        if (sysctl(mib, 4, &info, &size, NULL, 0) != 0 || size == 0) break;
+        pid = info.kp_eproc.e_ppid;
+    }
+}
 
 // The doll already says "Claude", so drop it from names: "claude-touchbar" -> "touchbar".
 static NSString *DisplayName(NSString *name) {
@@ -107,6 +133,8 @@ static NSArray<TBSession *> *LoadSessions(void) {
         s.name = DisplayName([obj[@"name"] isKindOfClass:NSString.class] ? obj[@"name"] : @"");
         s.state = state;
         s.since = since;
+        s.pid = pid;
+        s.hostSession = [obj[@"host_session"] isKindOfClass:NSString.class] ? obj[@"host_session"] : nil;
         [out addObject:s];
     }
     // Most urgent first; within a state, the one waiting longest first.
@@ -173,6 +201,7 @@ static NSImage *DollImage(NSColor *color, NSInteger frame) {
 @property NSTouchBar *modalBar;
 @property NSStackView *listStack;
 @property NSArray<TBSession *> *sessions;
+@property NSArray<TBSession *> *listSessions;   // what the list buttons currently show
 @property NSInteger tick;
 @property NSDate *modalShownAt;
 @property NSDate *quietSince;   // when the last working / needs-you session finished
@@ -309,20 +338,45 @@ static NSImage *DollImage(NSColor *color, NSInteger frame) {
     return item;
 }
 
-// The detail bar shown when the doll is tapped: one button per session.
+// The ✕ at the start of the list.
+- (void)closeTapped {
+    if (self.wasActive) self.userClosed = YES;
+    [self closeModal];
+}
+
+// Tapping a session box opens that session on the main screen. The list stays open.
+- (void)sessionTapped:(NSButton *)sender {
+    if (sender.tag < (NSInteger)self.listSessions.count) ShowSession(self.listSessions[sender.tag]);
+}
+
+// The list bar: a ✕, then one button per session. Buttons are updated in place rather than
+// rebuilt every tick, so a tap isn't lost when the list refreshes under your finger.
 - (void)refreshList {
-    for (NSView *v in self.listStack.arrangedSubviews) [v removeFromSuperview];
-    if (self.sessions.count == 0) {
-        [self.listStack addArrangedSubview:[NSButton buttonWithTitle:@"No Claude sessions"
-            image:DollImage(NSColor.grayColor, 0) target:self action:@selector(tapped)]];
+    self.listSessions = self.sessions;
+    NSUInteger rows = MAX(self.sessions.count, 1);
+    if (self.listStack.arrangedSubviews.count != rows + 1) {
+        for (NSView *v in self.listStack.arrangedSubviews) [v removeFromSuperview];
+        NSButton *close = [NSButton buttonWithTitle:@"✕" target:self action:@selector(closeTapped)];
+        [self.listStack addArrangedSubview:close];
+        for (NSUInteger i = 0; i < rows; i++) {
+            NSButton *b = [NSButton buttonWithTitle:@"" target:self action:@selector(sessionTapped:)];
+            b.imagePosition = NSImageLeft;
+            b.tag = i;
+            [self.listStack addArrangedSubview:b];
+        }
     }
-    for (TBSession *s in self.sessions) {
+    NSArray<NSView *> *buttons = self.listStack.arrangedSubviews;
+    if (self.sessions.count == 0) {
+        NSButton *b = (NSButton *)buttons[1];
+        b.title = @"No Claude sessions";
+        b.image = DollImage(NSColor.grayColor, 0);
+    }
+    for (NSUInteger i = 0; i < self.sessions.count; i++) {
+        TBSession *s = self.sessions[i];
+        NSButton *b = (NSButton *)buttons[i + 1];
         // The doll's color already shows the state, so the text is just name and time.
-        NSString *title = s.name.length ? [NSString stringWithFormat:@"%@ · %@", s.name, Elapsed(s.since)] : Elapsed(s.since);
-        NSButton *b = [NSButton buttonWithTitle:title image:DollImage(StateColor(s.state), s.state == TBWorking ? self.tick : 0)
-                                         target:self action:@selector(tapped)];
-        b.imagePosition = NSImageLeft;
-        [self.listStack addArrangedSubview:b];
+        b.title = s.name.length ? [NSString stringWithFormat:@"%@ · %@", s.name, Elapsed(s.since)] : Elapsed(s.since);
+        b.image = DollImage(StateColor(s.state), s.state == TBWorking ? self.tick : 0);
     }
     [self.listStack layoutSubtreeIfNeeded];
     [self.listStack setFrameSize:self.listStack.fittingSize];
