@@ -51,9 +51,6 @@ static TBState StateFromString(NSString *s) {
 static NSString *StateName(TBState s) {
     return @[@"idle", @"done", @"working", @"attention"][s];
 }
-static NSString *StateLabel(TBState s) {
-    return @[@"Idle", @"Done", @"Working", @"Needs you"][s];
-}
 static NSColor *StateColor(TBState s) {
     switch (s) {
         case TBAttention: return [NSColor colorWithSRGBRed:1.00 green:0.82 blue:0.10 alpha:1];
@@ -70,6 +67,14 @@ static NSColor *StateColor(TBState s) {
 @end
 @implementation TBSession
 @end
+
+// The doll already says "Claude", so drop it from names: "claude-touchbar" -> "touchbar".
+static NSString *DisplayName(NSString *name) {
+    NSString *s = [name stringByReplacingOccurrencesOfString:@"[-_ .]*claude[-_ .]*" withString:@" "
+                                                      options:NSRegularExpressionSearch | NSCaseInsensitiveSearch
+                                                        range:NSMakeRange(0, name.length)];
+    return [s stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+}
 
 static NSArray<TBSession *> *LoadSessions(void) {
     NSFileManager *fm = NSFileManager.defaultManager;
@@ -99,7 +104,7 @@ static NSArray<TBSession *> *LoadSessions(void) {
             since = updated;
         }
         TBSession *s = [TBSession new];
-        s.name = [obj[@"name"] isKindOfClass:NSString.class] ? obj[@"name"] : @"Claude";
+        s.name = DisplayName([obj[@"name"] isKindOfClass:NSString.class] ? obj[@"name"] : @"");
         s.state = state;
         s.since = since;
         [out addObject:s];
@@ -307,7 +312,8 @@ static NSImage *DollImage(NSColor *color, NSInteger frame) {
             image:DollImage(NSColor.grayColor, 0) target:self action:@selector(tapped)]];
     }
     for (TBSession *s in self.sessions) {
-        NSString *title = [NSString stringWithFormat:@"%@ · %@ %@", s.name, StateLabel(s.state), Elapsed(s.since)];
+        // The doll's color already shows the state, so the text is just name and time.
+        NSString *title = s.name.length ? [NSString stringWithFormat:@"%@ · %@", s.name, Elapsed(s.since)] : Elapsed(s.since);
         NSButton *b = [NSButton buttonWithTitle:title image:DollImage(StateColor(s.state), s.state == TBWorking ? self.tick : 0)
                                          target:self action:@selector(tapped)];
         b.imagePosition = NSImageLeft;
