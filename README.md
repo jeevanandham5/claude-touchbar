@@ -15,7 +15,11 @@ down instead of switching windows.
 - It works with Claude Code in the terminal (CLI) and in the Claude desktop app's Code tab.
 - With several sessions at once, the doll shows the most urgent one
   (yellow > orange > green > blue), how long it has been that way, and `+N` for the rest.
-- Tap the doll to see every session by name. Tap again (or wait 20 seconds) to close.
+- When a session starts working, the Touch Bar opens a list of every session by name and
+  keeps it open while anything is working or waiting on you. It closes by itself about
+  5 seconds after everything is done.
+- Close the list with the ✕ or by tapping a session; it then stays closed until the next
+  task starts. While it's closed, tap the doll to open it.
 
 > Unofficial fan project. Not made by or affiliated with Anthropic.
 

@@ -170,6 +170,9 @@ static NSImage *DollImage(NSColor *color, NSInteger frame) {
 @property NSArray<TBSession *> *sessions;
 @property NSInteger tick;
 @property NSDate *modalShownAt;
+@property NSDate *quietSince;   // when the last working / needs-you session finished
+@property BOOL wasActive;       // something was working or waiting on you last tick
+@property BOOL userClosed;      // you closed the list during the current burst of work
 @end
 
 @implementation AppDelegate
@@ -222,9 +225,35 @@ static NSImage *DollImage(NSColor *color, NSInteger frame) {
         NSString *others = self.sessions.count > 1 ? [NSString stringWithFormat:@" +%lu", self.sessions.count - 1] : @"";
         self.trayButton.title = [Elapsed(top.since) stringByAppendingString:others];
     }
-    if (self.modalBar) {
-        [self refreshList];
-        if ([[NSDate date] timeIntervalSinceDate:self.modalShownAt] > 20) [self closeModal];
+    [self updateModal:top];
+}
+
+// The session list opens by itself when work starts, stays open while anything is working or
+// waiting on you, and closes a few seconds after everything is done. Closing it yourself keeps
+// it closed until the next round of work starts.
+- (void)updateModal:(TBSession *)top {
+    BOOL active = top && (top.state == TBWorking || top.state == TBAttention);
+    NSDate *now = [NSDate date];
+
+    // Closed with the ✕ (the system hid it without telling us).
+    if (self.modalBar && !self.modalBar.visible && [now timeIntervalSinceDate:self.modalShownAt] > 1.5) {
+        self.modalBar = nil;
+        if (active) self.userClosed = YES;
+    }
+    if (active && !self.wasActive) self.userClosed = NO;
+    self.wasActive = active;
+
+    if (active) {
+        self.quietSince = nil;
+        if (!self.modalBar && !self.userClosed) [self openModal];
+    } else if (!self.quietSince) {
+        self.quietSince = now;
+    }
+
+    if (!self.modalBar) return;
+    [self refreshList];
+    if (!active && [now timeIntervalSinceDate:self.quietSince] > 5 && [now timeIntervalSinceDate:self.modalShownAt] > 5) {
+        [self closeModal];
     }
 }
 
@@ -237,7 +266,15 @@ static NSImage *DollImage(NSColor *color, NSInteger frame) {
 }
 
 - (void)tapped {
-    if (self.modalBar) { [self closeModal]; return; }
+    if (self.modalBar) {
+        if (self.wasActive) self.userClosed = YES;
+        [self closeModal];
+        return;
+    }
+    [self openModal];
+}
+
+- (void)openModal {
     NSTouchBar *bar = [NSTouchBar new];
     bar.delegate = self;
     bar.defaultItemIdentifiers = @[kListID];
