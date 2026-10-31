@@ -83,7 +83,7 @@ int main(int argc, const char *argv[]) {
             rec[@"name"] = name.length > 24 ? [name substringToIndex:24] : name;
             rec[@"named_by_prompt"] = @YES;
         } else if (!rec[@"name"]) {
-            NSString *name = base.length ? base : @"Session";
+            NSString *name = base.length ? base : @"Claude";
             rec[@"name"] = name.length > 24 ? [name substringToIndex:24] : name;
         }
         rec[@"pid"] = @(OwnerPid());
