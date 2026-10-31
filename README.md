@@ -16,10 +16,12 @@ down instead of switching windows.
 - With several sessions at once, the doll shows the most urgent one
   (yellow > orange > green > blue), how long it has been that way, and `+N` for the rest.
 - When a session starts working, the Touch Bar opens a list of every session by name and
-  keeps it open while anything is working or waiting on you. It closes by itself about
+  time (like `touchbar · 2m`; "claude" is left out because the doll already says it). It
+  stays open while anything is working or waiting on you, and closes by itself about
   5 seconds after everything is done.
 - Close the list with the ✕ or by tapping a session; it then stays closed until the next
-  task starts. While it's closed, tap the doll to open it.
+  task starts. Tap the doll to open it any time; a list you open yourself stays open until
+  you close it.
 
 > Unofficial fan project. Not made by or affiliated with Anthropic.
 

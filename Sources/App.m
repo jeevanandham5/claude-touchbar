@@ -178,6 +178,7 @@ static NSImage *DollImage(NSColor *color, NSInteger frame) {
 @property NSDate *quietSince;   // when the last working / needs-you session finished
 @property BOOL wasActive;       // something was working or waiting on you last tick
 @property BOOL userClosed;      // you closed the list during the current burst of work
+@property BOOL userOpened;      // you opened the list by tapping, so only you close it
 @end
 
 @implementation AppDelegate
@@ -235,7 +236,8 @@ static NSImage *DollImage(NSColor *color, NSInteger frame) {
 
 // The session list opens by itself when work starts, stays open while anything is working or
 // waiting on you, and closes a few seconds after everything is done. Closing it yourself keeps
-// it closed until the next round of work starts.
+// it closed until the next round of work starts; opening it yourself keeps it open until you
+// close it.
 - (void)updateModal:(TBSession *)top {
     BOOL active = top && (top.state == TBWorking || top.state == TBAttention);
     NSDate *now = [NSDate date];
@@ -257,7 +259,8 @@ static NSImage *DollImage(NSColor *color, NSInteger frame) {
 
     if (!self.modalBar) return;
     [self refreshList];
-    if (!active && [now timeIntervalSinceDate:self.quietSince] > 5 && [now timeIntervalSinceDate:self.modalShownAt] > 5) {
+    if (!active && !self.userOpened && [now timeIntervalSinceDate:self.quietSince] > 5
+        && [now timeIntervalSinceDate:self.modalShownAt] > 5) {
         [self closeModal];
     }
 }
@@ -277,9 +280,11 @@ static NSImage *DollImage(NSColor *color, NSInteger frame) {
         return;
     }
     [self openModal];
+    self.userOpened = YES;
 }
 
 - (void)openModal {
+    self.userOpened = NO;
     NSTouchBar *bar = [NSTouchBar new];
     bar.delegate = self;
     bar.defaultItemIdentifiers = @[kListID];
