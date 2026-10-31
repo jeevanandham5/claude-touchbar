@@ -99,7 +99,7 @@ static NSArray<TBSession *> *LoadSessions(void) {
             since = updated;
         }
         TBSession *s = [TBSession new];
-        s.name = [obj[@"name"] isKindOfClass:NSString.class] ? obj[@"name"] : @"Claude";
+        s.name = [obj[@"name"] isKindOfClass:NSString.class] ? obj[@"name"] : @"Session";
         s.state = state;
         s.since = since;
         [out addObject:s];
@@ -303,7 +303,7 @@ static NSImage *DollImage(NSColor *color, NSInteger frame) {
 - (void)refreshList {
     for (NSView *v in self.listStack.arrangedSubviews) [v removeFromSuperview];
     if (self.sessions.count == 0) {
-        [self.listStack addArrangedSubview:[NSButton buttonWithTitle:@"No Claude sessions"
+        [self.listStack addArrangedSubview:[NSButton buttonWithTitle:@"No sessions"
             image:DollImage(NSColor.grayColor, 0) target:self action:@selector(tapped)]];
     }
     for (TBSession *s in self.sessions) {
